@@ -1,0 +1,25 @@
+package miis.Lab4;
+
+import java.util.Scanner;
+
+public class MatrixMultiplier {
+
+	public static void main(String[] args) {
+		Scanner reader = new Scanner(System.in);
+		System.out.println("Enter matrix size n,m: ");
+		String[] s = reader.next().split(",");
+		reader.close();
+		int n = Integer.parseInt(s[0]);
+		int m = Integer.parseInt(s[1]);
+		
+		int[][] p = MatrixGenerator.create_matrix(n,m);
+		
+		System.out.println("Enter matrix size n,m: ");
+		s = reader.next().split(",");
+		reader.close();
+		n = Integer.parseInt(s[0]);
+		m = Integer.parseInt(s[1]);
+		int[][] q = MatrixGenerator.create_matrix(n,m);
+	}
+
+}

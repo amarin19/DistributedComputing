@@ -1,0 +1,19 @@
+package miis.Lab4;
+
+import java.util.*;
+
+public class MatrixGenerator {
+	
+
+	public static int[][] create_matrix(int n, int m) {
+		int i,j;
+		int [] [] matrix = new int [n] [m];
+		for (i=0; i<n; i++) {
+			for (j=0; j<m; j++) {
+				matrix[i][j] = (int)(Math.random()*10);
+			}
+		}
+	return matrix;
+
+	}
+}

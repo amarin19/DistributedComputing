@@ -1,0 +1,34 @@
+package miis.Lab4.Proves;
+
+public class Tuple<T1, T2>
+{
+    /**
+     * The first item in the tuple.
+     */
+    public T1 item1;
+    /**
+     * The second item in the tuple.
+     */
+    public T2 item2;
+
+    /**
+     * Creates a new tuple with the two given items.
+     *
+     * @param item1 The first item in the tuple.
+     * @param item2 The second item in the tuple.
+     */
+    public Tuple(T1 item1, T2 item2)
+    {
+        this.item1 = item1;
+        this.item2 = item2;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String toString()
+    {
+        return "(" + this.item1.toString() + ", " + this.item2.toString() + ")";
+    }
+}

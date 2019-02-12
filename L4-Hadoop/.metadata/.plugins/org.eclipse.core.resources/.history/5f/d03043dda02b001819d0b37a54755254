@@ -1,0 +1,330 @@
+package miis.Lab4;
+
+import java.io.IOException;
+import java.util.StringTokenizer;
+import java.util.HashMap;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.Mapper.Context;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+
+
+public class MatrixMultiplicator {
+
+	//1. MapReduce to know the size of the matrices.
+	//Mapper that counts the number of rows and columns
+	public static class MatrixSizer extends Mapper<Object, Text, Text, Text>{
+		private Text line = new Text();
+		private Text matrix_key = new Text();
+
+		public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
+			String m_key= "";
+			String[] columns = value.toString().split(",");
+			int index = 1;
+
+			if (columns[0].equals("B")){
+				m_key = "L";
+				index = 2;				  
+			}else{
+				m_key = "N";
+			}
+			matrix_key.set(m_key);
+			line.set(String.valueOf(columns[index]));
+			context.write(matrix_key, line);
+		}
+	}
+
+	//Reducer that returns the max value of N and L which will be the result matrix.
+	public static class MatrixSizerReducer extends Reducer<Text,Text,Text,Text> {
+		private Text result = new Text();
+
+		public void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
+			int max = 0;
+			for (Text value : values) {
+				int aux =  Integer.parseInt(value.toString())+1;
+				if (aux>max){
+					max=aux;
+				}
+			}
+			result.set(String.valueOf(max));
+			context.write(key, result);
+		}
+	}
+
+	//2. MapReduce to build the buffer of results.
+	//Mapper function that builds the indexes of the submatrices.
+	public static class KMapper extends Mapper<Object, Text, Text, Text>{
+		private Text sub_key = new Text();
+
+		public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
+			Configuration conf = context.getConfiguration();
+			int N = Integer.parseInt(conf.get("N"));
+			int L = Integer.parseInt(conf.get("L"));
+			int p = 2;
+
+			String[] columns = value.toString().split(",");
+			String i = columns[1];
+			String j = columns[2];
+			
+			String sub_i = String.valueOf((int) Math.floor(Integer.parseInt(i)/p));
+			String sub_j = String.valueOf((int) Math.floor(Integer.parseInt(j)/p));
+			
+			if (columns[0].equals("A")) {
+				for (int k = 0; k<Math.ceil(L/p); k++) {
+					System.out.print(k);
+					System.out.println("L="+L);
+					System.out.println("N="+N);
+					sub_key.set(sub_i+","+k+","+sub_j);
+					context.write(sub_key, value);
+				}			
+			} else {
+				for (int k = 0; k<Math.ceil(N/p); k++) {
+					sub_key.set(k+","+sub_j+","+sub_i);
+					context.write(sub_key, value);
+				}				
+			}
+		}
+	}
+
+	//Reducer multiplies submatrices.
+	public static class KReducer extends Reducer<Text,Text,Text,Text> {
+		private Text c_keys = new Text();
+		private Text c_values = new Text();
+
+		public void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
+			HashMap<Integer, HashMap<Integer,Integer>> A = new HashMap<>();
+			HashMap<Integer, HashMap<Integer,Integer>> B = new HashMap<>();
+
+			boolean first_time_a = true;
+			boolean first_time_b = true;
+			int i;
+			int j;			
+			int row_a_min = 0;
+			int col_a_min = 0;
+			int col_b_min = 0;
+			int row_a_max = 0;
+			int col_a_max = 0;
+			int col_b_max = 0;
+
+			String keys[] = key.toString().split(",");
+			
+			String I = keys[0];
+			String K = keys[1];
+			
+			for (Text value : values) {
+				String[] column = value.toString().split(",");
+				i = Integer.parseInt(column[1]);
+				j = Integer.parseInt(column[2]);
+
+				HashMap<Integer, Integer> aux = new HashMap<>(); 
+				aux.put(j, Integer.parseInt(column[3]));
+
+				if (column[0].equals("A")) {
+					if (A.containsKey(i)) {
+						A.get(i).put(j, Integer.parseInt(column[3]));
+					} else {
+						A.put(i,  aux);
+					}
+					if (first_time_a) {
+						row_a_min = i;
+						col_a_min = j;
+						first_time_a = false;
+					}else {
+						if (row_a_min>i) {
+							row_a_min = i;
+						}
+						if (col_a_min>j) {
+							col_a_min = j;
+						}
+					}
+					if (row_a_max<i) {
+						row_a_max = i;
+					}
+					if (col_a_max<j) {
+						col_a_max = j;
+					}
+				} else {
+					if (first_time_b) {
+						col_b_min = j;
+						first_time_b = false;
+					} else {
+						if (col_b_min>j) {
+							col_b_min = j;
+						}
+					}
+					if (col_b_max<j) {
+						col_b_max = j;
+					}
+					if (B.containsKey(i)) {
+						B.get(i).put(j, Integer.parseInt(column[3]));
+					} else {
+						B.put(i,  aux);
+					}
+				}
+			}
+
+			for (i = row_a_min; i<=row_a_max; i++) {
+				for (j = col_b_min; j<=col_b_max; j++){
+					int aux = 0;
+					for(int k = col_a_min; k<=col_a_max; k++) {
+						//A_index = (i,k);
+						//B_index = (k,j);
+						aux += A.get(i).get(k)* B.get(k).get(j);
+					}
+					String row = Integer.toString(i);
+					String col = Integer.toString(j);
+					String result = Integer.toString(aux);
+					c_keys.set(I+","+K);
+					c_values.set(row+","+col+","+result);
+					context.write(c_keys, c_values);
+				}
+			}
+			System.out.println("Fin del bloc");
+		}
+	}
+
+	//3. MapReduce to add up all the submatrices and display the final result:
+	//Mapper
+	public static class BlockMapper extends Mapper<Object, Text, Text, Text>{
+		private Text keymtext = new Text();
+		private Text val = new Text();
+
+		public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
+			StringTokenizer itr = new StringTokenizer(value.toString());
+			keymtext.set(itr.nextToken());
+			val.set(itr.nextToken());
+			context.write(keymtext, val);
+		}
+	}
+	//Reducer
+	public static class BlockReducer extends Reducer<Text, Text, Text, Text>{
+		private Text c_position = new Text();
+		private Text c_values = new Text();
+		public void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
+			HashMap<Integer, HashMap<Integer,Integer>> C = new HashMap<>();
+			int i;
+			int j;
+			int val;
+
+			for (Text value: values) {
+				String[] column = value.toString().split(",");
+				i = Integer.parseInt(column[0]);
+				j = Integer.parseInt(column[1]);
+				val = Integer.parseInt(column[2]);
+
+				if (C.containsKey(i)) {
+					if (C.get(i).containsKey(j)) {
+						C.get(i).put(j, C.get(i).get(j)+val);
+					} else { 
+						C.get(i).put(j, val);
+					}
+				} else {
+					HashMap<Integer, Integer> aux = new HashMap<>(); 
+					aux.put(j, val);
+					C.put(i, aux);
+				}
+			}
+
+			for (int row: C.keySet()) {
+				for (int col: C.get(row).keySet()) {
+					c_position.set(String.valueOf(row)+","+String.valueOf(col));
+					c_values.set(C.get(row).get(col).toString());
+					context.write(c_position,  c_values);
+				}
+			}
+		}
+	}
+
+	public static void main(String[] args) throws Exception {
+		//1. First MapReduce step: discover the matrix sizes.
+		Configuration conf = new Configuration();
+		FileSystem hdfs = FileSystem.get(conf);
+		hdfs.delete(new Path(args[1]),true); //Delete the output folder just in case it exists
+		System.out.println("Job: matrix size determiner");
+		Job job_counter = Job.getInstance(conf, "Matrix size determiner");
+		job_counter.setJarByClass(MatrixMultiplicator.class);
+		
+		// Define the map and the reduce as well as their outputs
+		job_counter.setMapperClass(MatrixSizer.class);
+		job_counter.setReducerClass(MatrixSizerReducer.class);
+		job_counter.setOutputKeyClass(Text.class);
+		job_counter.setOutputValueClass(Text.class);
+		
+		// I/O:
+		FileInputFormat.addInputPath(job_counter, new Path(args[0]));
+		FileOutputFormat.setOutputPath(job_counter, new Path(args[1]));
+		
+		// Check if the job is finished to start the next one:
+		boolean job_finished = job_counter.waitForCompletion(true);
+		if (job_finished) {
+			//Read the sizes
+			Path outputpath = new Path(args[1]+"/part-r-00000");
+			BufferedReader br=new BufferedReader(new InputStreamReader(hdfs.open(outputpath)));
+			String line = br.readLine();
+			while (line != null){
+				StringTokenizer itr = new StringTokenizer(line);
+				String val=itr.nextToken();
+				if(val.equals("L")){
+					val=itr.nextToken();
+					conf.set("L",val);
+				}else{
+					val=itr.nextToken();
+					conf.set("N",val);
+				}
+				line=br.readLine();
+			}
+			hdfs.delete(new Path(args[1]),true);
+			
+			//2. Second MapReduce step: make submatrices instead of storing everything:
+			System.out.println("Job: submatrices processing");			
+			Job job_submatrices = Job.getInstance(conf, "Submatrices multiplication");
+			job_submatrices.setJarByClass(MatrixMultiplicator.class);
+
+			//Define the map and the reduce as well as their outputs
+			job_submatrices.setMapperClass(KMapper.class);
+			//job_submatrices.setReducerClass(KReducer.class);
+			job_submatrices.setOutputKeyClass(Text.class);
+			job_submatrices.setOutputValueClass(Text.class);
+			
+			// I/O:
+			FileInputFormat.addInputPath(job_submatrices, new Path(args[0]));
+			FileOutputFormat.setOutputPath(job_submatrices, new Path(args[1]));
+			
+			// Check if the new job is finished:
+			job_finished = job_submatrices.waitForCompletion(true);
+			/*if (job_finished){
+				//3. Final MapReduce: sum the submatrices:
+				System.out.println("Job: result computation");
+				Job final_job = Job.getInstance(conf, "matrix multsum");
+				final_job.setJarByClass(MatrixMultiplicator.class);
+				
+				//Define the map and the reduce as well as their outputs
+				final_job.setMapperClass(BlockMapper.class);
+				final_job.setReducerClass(BlockReducer.class);
+				final_job.setOutputKeyClass(Text.class);
+				final_job.setOutputValueClass(Text.class);
+				
+				// I/O:				
+				FileInputFormat.addInputPath(final_job, outputpath);
+				FileOutputFormat.setOutputPath(final_job, new Path(args[1]+"/FINAL"));
+				job_finished = final_job.waitForCompletion(true);
+				hdfs.delete(outputpath,true);
+
+				// Check if the new job is finished:
+				if (job_finished){
+					System.exit(0);
+				}
+			}*/
+		}
+		System.exit(1);
+	}
+}

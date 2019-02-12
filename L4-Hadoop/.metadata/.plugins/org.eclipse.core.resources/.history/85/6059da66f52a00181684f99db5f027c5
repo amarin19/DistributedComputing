@@ -1,0 +1,12 @@
+package miis.Lab4;
+
+import java.util.HashMap;
+
+public class Hashprova {
+	HashMap<Tuple<Integer,Integer>, Integer> A = new HashMap<Tuple<Integer,Integer>, Integer>();
+	Tuple<Integer,Integer> index = new Tuple(0,0);
+	
+	System.out.println(index);
+
+
+}

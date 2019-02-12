@@ -1,0 +1,29 @@
+package miis.Lab4;
+
+import java.util.Scanner;
+
+public class MatrixMultiplier {
+
+	public static void main(String[] args) {
+		//Create a scanner to take input from the user:
+		Scanner reader = new Scanner(System.in);
+		
+		//Receive the dimensions of matrices P and Q:
+		System.out.println("Enter matrix sizes p_row,p_col,q_row,q_col: ");
+		String[] s = reader.next().split(",");
+		reader.close();
+		
+		//Parse the input:
+		int p_row = Integer.parseInt(s[0]);
+		int p_col = Integer.parseInt(s[1]);
+		int q_row = Integer.parseInt(s[2]); //Note this has to be equal to p_col! 
+		int q_col = Integer.parseInt(s[3]);
+		
+		//Make the matrices:
+		int[][] p = MatrixGenerator.create_matrix(p_row,p_col);
+		int[][] q = MatrixGenerator.create_matrix(q_row,q_col);
+		
+		//Show them (optional)
+	}
+
+}

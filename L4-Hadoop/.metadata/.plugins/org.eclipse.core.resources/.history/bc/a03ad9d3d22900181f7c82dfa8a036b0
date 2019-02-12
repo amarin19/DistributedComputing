@@ -1,0 +1,15 @@
+package miis.Lab4;
+
+import java.util.*;
+
+public class MatrixGenerator {
+
+	public static void main(String[] args) {
+		Scanner reader = new Scanner(System.in);
+		System.out.println("Enter matrix size n,m: ");
+		String s = reader.next();
+		System.out.println(s);	
+		reader.close();
+		}
+	}
+}

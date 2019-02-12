@@ -1,0 +1,21 @@
+//package miis.Lab4;
+
+public class MatrixGenerator {
+	public static void main(String[] args) throws Exception {
+		if (args.length < 2) {
+			System.out.println("Insufficient arguments");
+			System.exit(1);
+		}
+		
+		int n = Integer.parseInt(args[0]);
+		int m = Integer.parseInt(args[1]);
+		int i,j;
+		//int [] [] matrix = new int [n] [m];
+		for (i=0; i<n; i++) {
+			for (j=0; j<m; j++) {
+				//matrix[i][j] = (int)(Math.random()*10);
+				System.out.println("A,"+i+","+j+","+(int)(Math.random()*10));
+			}
+		}
+	}
+}

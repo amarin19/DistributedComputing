@@ -1,0 +1,11 @@
+package miis.Lab4;
+
+public class MatrixMultiplier {
+
+	public static void main(String[] args) {
+		MatrixGenerator p = new MatrixGenerator();
+		MatrixGenerator q = new MatrixGenerator();
+		System.out.println(p);
+	}
+
+}
